@@ -41,6 +41,8 @@ class param(param):
     gaussian_std: Optional[float] = None
     sp_prob: Optional[float] = None
     brightness_factor: Optional[float] = None
+    save_image: bool = False
+    save_distortion: bool = False
     
 
 
@@ -109,14 +111,16 @@ def main(args: param):
         image_w = outputs.images[0]
         # img = pipe.numpy_to_pil(image_w)
         #保存图像
-        image_w.save(args.output_path + 'image_w_' + str(i) + '.png')
+        if args.save_image:
+            image_w.save(args.output_path + 'image_w_' + str(i) + '.png')
 
         # distortion
         image_w_distortion,type_info = image_distortion(image_w, seed, args)
-        savepath = os.path.join(args.output_path, 'distortion')
-        if not os.path.exists(savepath):
-            os.makedirs(savepath)
-        image_w_distortion.save(savepath + f'/image_distortion_{type_info}' + str(i) + '.png')
+        if args.save_distortion:
+            savepath = os.path.join(args.output_path, 'distortion')
+            if not os.path.exists(savepath):
+                os.makedirs(savepath)
+            image_w_distortion.save(savepath + f'/image_distortion_{type_info}' + str(i) + '.png')
 
         # reverse img
         image_w_distortion = transform_img(image_w_distortion).unsqueeze(0).to(text_embeddings.dtype).to(device)
