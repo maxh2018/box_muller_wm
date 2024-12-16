@@ -44,6 +44,26 @@ def save_metrics(args, tpr_detection, tpr_traceability, acc, clip_scores):
     for option, name in names.items():
         if getattr(args, option) is not None:
             filename = name
+            strength = 0
+            if option == 'jpeg_ratio':
+                strength = args.jpeg_ratio
+            elif option == 'random_crop_ratio':
+                strength = args.random_crop_ratio
+            elif option == 'random_drop_ratio':
+                strength = args.random_drop_ratio
+            elif option == 'gaussian_blur_r':
+                strength = args.gaussian_blur_r
+            elif option == 'gaussian_std':
+                strength = args.gaussian_std
+            elif option == 'median_blur_k':
+                strength = args.median_blur_k
+            elif option == 'resize_ratio':
+                strength = args.resize_ratio
+            elif option == 'sp_prob':
+                strength = args.sp_prob
+            elif option == 'brightness_factor':
+                strength = args.brightness_factor
+            filename = name + '_' + str(strength) + '.txt'
 
     if args.reference_model is not None:
         with open(args.output_path + filename, "a") as file:
