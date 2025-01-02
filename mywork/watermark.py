@@ -63,9 +63,9 @@ class Gaussian_Shading_chacha:
             dec_mes = int(dec_mes)
             z[i] = truncnorm.rvs(ppf[dec_mes], ppf[dec_mes + 1])
         if self.l == 1:
-            z = torch.from_numpy(z).reshape(1, 4, 64, 64).half()
+            z = torch.from_numpy(z).reshape(1, 4, 64, 64).to(dtype=torch.float32)
         else:
-            z = torch.from_numpy(z).reshape(1, 4, 64, 64, self.l).half()
+            z = torch.from_numpy(z).reshape(1, 4, 64, 64, self.l).to(dtype=torch.float32)
         
         return z.cuda()
 
@@ -80,7 +80,9 @@ class Gaussian_Shading_chacha:
 
     #利用Box-Muller方法生成高斯分布随机数
     def Box_Muller(self, ret): #ret: np.array
+        # np.random.seed(0)
         self.U2 = np.random.rand(len(ret))
+        # self.U2 = np.random.uniform(0, 1, len(ret))
         #计算ret的以e为底的对数
         R = -2*np.log(ret) 
         #计算ret的余弦值
@@ -89,9 +91,9 @@ class Gaussian_Shading_chacha:
         Z0 = np.sqrt(R)*np.cos(theta)
         # Z1 = np.sqrt(R)*np.sin(theta)
         if self.l == 1:
-            z = torch.from_numpy(Z0).reshape(1, 4, 64, 64).half()
+            z = torch.from_numpy(Z0).reshape(1, 4, 64, 64).half()#.to(dtype=torch.float32)
         else:
-            z = torch.from_numpy(Z0).reshape(1, 4, 64, 64, self.l).half()
+            z = torch.from_numpy(Z0).reshape(1, 4, 64, 64, self.l).half()#.to(dtype=torch.float32)
         return z
         
     

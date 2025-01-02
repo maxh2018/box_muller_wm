@@ -109,12 +109,12 @@ def main(args):
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Gaussian Shading')
-    parser.add_argument('--num', default=1000, type=int)
+    parser.add_argument('--num', default=2, type=int)
     parser.add_argument('--image_length', default=512, type=int)
     parser.add_argument('--guidance_scale', default=7.5, type=float)
     parser.add_argument('--num_inference_steps', default=50, type=int)
     parser.add_argument('--num_inversion_steps', default=None, type=int)
-    parser.add_argument('--gen_seed', default=0, type=int)
+    parser.add_argument('--gen_seed', default=1, type=int)
     parser.add_argument('--channel_copy', default=1, type=int)
     parser.add_argument('--hw_copy', default=8, type=int)
     parser.add_argument('--user_number', default=1000000, type=int)
@@ -124,7 +124,7 @@ if __name__ == '__main__':
     parser.add_argument('--reference_model', default=None)
     parser.add_argument('--reference_model_pretrain', default=None)
     parser.add_argument('--dataset_path', default='Gustavosta/Stable-Diffusion-Prompts')
-    parser.add_argument('--model_path', default='stabilityai/stable-diffusion-2-1-base')
+    parser.add_argument('--model_path', default='/home/maxiaohui/llm_model/stable-diffusion-2-1-base')
 
     # for image distortion
     parser.add_argument('--jpeg_ratio', default=None, type=int)
@@ -133,7 +133,7 @@ if __name__ == '__main__':
     parser.add_argument('--gaussian_blur_r', default=None, type=int)
     parser.add_argument('--median_blur_k', default=None, type=int)
     parser.add_argument('--resize_ratio', default=None, type=float)
-    parser.add_argument('--gaussian_std', default=None, type=float)
+    parser.add_argument('--gaussian_std', default=0.1, type=float)
     parser.add_argument('--sp_prob', default=None, type=float)
     parser.add_argument('--brightness_factor', default=None, type=float)
 

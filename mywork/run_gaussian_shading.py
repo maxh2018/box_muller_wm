@@ -1,7 +1,9 @@
-# import argparse
+"""
+为了调试方便，部分位置用了绝对路径
+"""
 import copy
 from tqdm import tqdm
-import torch
+import torch, sys, os
 from transformers import CLIPModel, CLIPTokenizer
 from inverse_stable_diffusion import InversableStableDiffusionPipeline
 from diffusers import DPMSolverMultistepScheduler, DDIMScheduler
@@ -13,6 +15,14 @@ from watermark import *
 from pydantic import BaseModel
 from typing import *
 from PIL import Image
+
+parent_dir = os.path.abspath("/home/maxiaohui/box_muller_wm")
+sys.path.append(parent_dir)
+# from DeamNet.denoise import main as denoise
+from MaskedDenoising.denoise import  denoise as denoise_
+from MaskedDenoising.denoise import  init, param_denoise
+
+DENOISE = True
 
 class param(param):
     device: str = 'cuda'
@@ -43,6 +53,7 @@ class param(param):
     brightness_factor: Optional[float] = None
     save_image: bool = False
     save_distortion: bool = False
+    DENOISE : bool= False
     
 
 
@@ -68,6 +79,15 @@ def main(args: param):
                                                                                   pretrained=args.reference_model_pretrain,
                                                                                   device=device)
         ref_tokenizer = open_clip.get_tokenizer(args.reference_model)
+        
+    if  args.DENOISE is True:
+        with open("/home/maxiaohui/box_muller_wm/MaskedDenoising/config/args.json", "r", encoding='utf-8') as f:
+            json_dict = json.load(f)
+    
+        args_denoise = param_denoise(**json_dict)
+        denoise_model,window_size = init(args_denoise)
+        def denoise(image, imgname=None):
+            return denoise_(denoise_model, window_size, image, args_denoise,imgname)
 
     # dataset
     dataset, prompt_key = get_dataset(args)
@@ -77,7 +97,7 @@ def main(args: param):
     if args.chacha:
         watermark = Gaussian_Shading_chacha(args)
     else:
-        #a simple implement,
+        #这一部分暂未实现
         watermark = Gaussian_Shading(args)
 
     os.makedirs(args.output_path, exist_ok=True)
@@ -108,7 +128,7 @@ def main(args: param):
             width=args.image_length,
             latents=init_latents_w,
         )
-        image_w = outputs.images[0]
+        image_w = outputs.images[0] #PIL Image对象
         # img = pipe.numpy_to_pil(image_w)
         #保存图像
         if args.save_image:
@@ -121,7 +141,8 @@ def main(args: param):
             if not os.path.exists(savepath):
                 os.makedirs(savepath)
             image_w_distortion.save(savepath + f'/image_distortion_{type_info}' + str(i) + '.png')
-
+        if args.DENOISE is True:  
+            image_w_distortion = denoise(image_w_distortion)
         # reverse img
         image_w_distortion = transform_img(image_w_distortion).unsqueeze(0).to(text_embeddings.dtype).to(device)
         image_latents_w = pipe.get_image_latents(image_w_distortion, sample=False)

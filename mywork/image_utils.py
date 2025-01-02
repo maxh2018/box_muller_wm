@@ -9,7 +9,7 @@ def set_random_seed(seed=0):
     torch.manual_seed(seed + 0)
     torch.cuda.manual_seed(seed + 1)
     torch.cuda.manual_seed_all(seed + 2)
-    np.random.seed(seed + 3)
+    np.random.seed(10)
     torch.cuda.manual_seed_all(seed + 4)
     random.seed(seed + 5)
 
@@ -37,7 +37,7 @@ def image_distortion(img,seed, args):
     
     type = ""
 
-    if args.jpeg_ratio is not None:
+    if args.jpeg_ratio is not None:#不可导
         img.save(f"tmp_{args.jpeg_ratio}.jpg", quality=args.jpeg_ratio)
         img = Image.open(f"tmp_{args.jpeg_ratio}.jpg")
         type = "jpeg--"+str(args.jpeg_ratio)
