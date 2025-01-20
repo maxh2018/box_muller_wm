@@ -7,6 +7,8 @@ from Crypto.Cipher import ChaCha20
 from Crypto.Random import get_random_bytes
 from pydantic import BaseModel
 from typing import *
+import copy
+from scipy.stats import shapiro
 
 class  param(BaseModel):
     ch_factor: Optional[int]
@@ -28,7 +30,7 @@ class Gaussian_Shading_chacha:
         self.key = None
         self.U2 = None
         self.watermark = None
-        self.latentlength = 4 * 64 * 64
+        self.latentlength =  4*128*128  #4 * 64 * 64
         self.marklength = self.latentlength//(self.ch * self.hw * self.hw)
 
         self.threshold = 1 if self.hw == 1 and self.ch == 1 else self.ch * self.hw * self.hw // 2
@@ -71,16 +73,31 @@ class Gaussian_Shading_chacha:
 
     #下面函数将离散值转成连续值，记为连续化
     def DAC(self, message):#DAC:Digital to Analog Converter
+        p = 0.0455
         l = len(message)
         #产生长度为l的[0,1]均匀分布的随机数
         u = np.random.rand(l)
         denominator = int(2.0**self.l)
         ret = (message + u) / denominator
+        ret = np.clip(ret, 1e-8, 1 - 1e-8) ###
         return ret
+    
+    def DAC_v2(self, message):  # DAC: Digital to Analog Converter
+        p = 0.41
+        self.p = p
+        l = len(message)
+        
+        # 对于message中的每个位置，如果是0则在[0, p]内均匀采样，否则在[p, 1]内均匀采样
+        ret = np.where(message == 0, np.random.rand(l) * p, p + np.random.rand(l) * (1 - p))
+
+        ret = np.clip(ret, 1e-8, 1 - 1e-8)  # 限制范围，避免极端值
+        return ret
+
 
     #利用Box-Muller方法生成高斯分布随机数
     def Box_Muller(self, ret): #ret: np.array
         # np.random.seed(0)
+        # if self.U2 is None:
         self.U2 = np.random.rand(len(ret))
         # self.U2 = np.random.uniform(0, 1, len(ret))
         #计算ret的以e为底的对数
@@ -92,22 +109,103 @@ class Gaussian_Shading_chacha:
         # Z1 = np.sqrt(R)*np.sin(theta)
         if self.l == 1:
             z = torch.from_numpy(Z0).reshape(1, 4, 64, 64).half()#.to(dtype=torch.float32)
+            # z = torch.from_numpy(Z0).reshape(1, 4, 128, 128).half()#.to(dtype=torch.float32)
         else:
             z = torch.from_numpy(Z0).reshape(1, 4, 64, 64, self.l).half()#.to(dtype=torch.float32)
         return z
         
+    def no_watermark_and_return_w(self):
+        if self.l == 1:
+            # self.watermark = torch.randint(0, 2, [1, 4 // self.ch, 64 // self.hw, 64 // self.hw]).cuda()
+            sd= torch.randn((1, 4 , 64 , 64 )).cuda()
+            
+        else:
+            self.watermark = torch.randn(0, 2, [1, 4 // self.ch, 64 // self.hw, 64 // self.hw, self.l]).cuda()
+            sd = self.watermark.repeat(1,self.ch,self.hw,self.hw,1)
+            
+        return sd.half()
     
     def create_watermark_and_return_w(self):
         if self.l == 1:
             self.watermark = torch.randint(0, 2, [1, 4 // self.ch, 64 // self.hw, 64 // self.hw]).cuda()
+            # self.watermark = torch.randint(0, 2, [1, 4 // self.ch, 128 // self.hw, 128 // self.hw]).cuda()
             sd = self.watermark.repeat(1,self.ch,self.hw,self.hw)
         else:
             self.watermark = torch.randint(0, 2, [1, 4 // self.ch, 64 // self.hw, 64 // self.hw, self.l]).cuda()
             sd = self.watermark.repeat(1,self.ch,self.hw,self.hw,1)
         m = self.stream_key_encrypt(sd.flatten().cpu().numpy())
         m = self.DAC(m)
+        # m = self.DAC_v2(m)
         w = self.Box_Muller(m)
+        # import copy
+        # w_ = copy.deepcopy(w)
+        # from scipy.stats import shapiro
+
+        # data = w_.flatten().cpu().numpy()
+        # stat, p_value = shapiro(data)
+        # print(f"Shapiro-Wilk Statistic: {stat}, p-value: {p_value}")
+
         return w
+    def create_watermark_and_return_w_v2(self):
+        if self.l == 1:
+            # self.watermark = torch.randint(0, 2, [1, 4 // self.ch, 64 // self.hw, 64 // self.hw]).cuda()
+            self.watermark = torch.randint(0, 2, [1, 4 // self.ch, 128 // self.hw, 128 // self.hw]).cuda()
+            sd = self.watermark.repeat(1,self.ch,self.hw,self.hw)
+        else:
+            self.watermark = torch.randint(0, 2, [1, 4 // self.ch, 64 // self.hw, 64 // self.hw, self.l]).cuda()
+            sd = self.watermark.repeat(1,self.ch,self.hw,self.hw,1)
+        m = self.stream_key_encrypt(sd.flatten().cpu().numpy())
+        # m = self.DAC(m)
+        m = self.DAC_v2(m)
+        w = self.Box_Muller(m)
+        # import copy
+        # w_ = copy.deepcopy(w)
+        # from scipy.stats import shapiro
+
+        # data = w_.flatten().cpu().numpy()
+        # stat, p_value = shapiro(data)
+        # print(f"Shapiro-Wilk Statistic: {stat}, p-value: {p_value}")
+
+        return w
+    
+
+    def create_watermark_and_return_w_v_(self):
+        max_attempts = 100  # 最大尝试次数
+        attempt = 0  # 当前尝试次数
+        best_p_value = 1  # 记录最大的 p_value
+        best_w = None  # 记录对应最大 p_value 的 w
+
+        while attempt < max_attempts:
+            if self.l == 1:
+                self.watermark = torch.randint(0, 2, [1, 4 // self.ch, 128 // self.hw, 128 // self.hw]).cuda()
+                sd = self.watermark.repeat(1, self.ch, self.hw, self.hw)
+            else:
+                self.watermark = torch.randint(0, 2, [1, 4 // self.ch, 64 // self.hw, 64 // self.hw, self.l]).cuda()
+                sd = self.watermark.repeat(1, self.ch, self.hw, self.hw, 1)
+
+            m = self.stream_key_encrypt(sd.flatten().cpu().numpy())
+            m = self.DAC(m)
+            w = self.Box_Muller(m)
+            w_ = copy.deepcopy(w)
+
+            data = w_.flatten().cpu().numpy()
+            stat, p_value = shapiro(data)
+            print(f"Attempt {attempt + 1}: Shapiro-Wilk Statistic: {stat}, p-value: {p_value}")
+
+            # 如果当前 p_value 满足条件，直接返回
+            if p_value <= 0.5:
+                return w
+
+            # 更新最大 p_value 和对应的 w
+            if p_value < best_p_value:
+                best_p_value = p_value
+                best_w = w
+
+            attempt += 1  # 增加尝试次数
+
+        # 如果达到最大尝试次数仍未满足条件，返回 p_value 最大的结果
+        print(f"Failed to generate watermark with p-value >= 0.9 after {max_attempts} attempts. Returning best result with p-value: {best_p_value}")
+        return best_w
 
     def stream_key_decrypt(self, reversed_m):
         cipher = ChaCha20.new(key=self.key, nonce=self.nonce)
@@ -115,6 +213,7 @@ class Gaussian_Shading_chacha:
         sd_bit = np.unpackbits(np.frombuffer(sd_byte, dtype=np.uint8))
         if self.l == 1:
             sd_tensor = torch.from_numpy(sd_bit).reshape(1, 4, 64, 64).to(torch.uint8)
+            # sd_tensor = torch.from_numpy(sd_bit).reshape(1, 4, 128, 128).to(torch.uint8)
         else:
             sd_tensor = torch.from_numpy(sd_bit).reshape(1, 4, 64, 64, self.l).to(torch.uint8)
         return sd_tensor.cuda()
@@ -123,6 +222,7 @@ class Gaussian_Shading_chacha:
         #将tensor转换为numpy数组
         reversed_w = reversed_w.cpu().numpy()
         U2 = self.U2.reshape((1, 4, 64, 64))
+        # U2 = self.U2.reshape((1, 4, 128, 128))
         denominator = np.cos(2*np.pi*U2)
         #将reverse_w的每一个元素转换除以denominator，然后平方
         R = (reversed_w / denominator)**2
@@ -131,9 +231,24 @@ class Gaussian_Shading_chacha:
         x = (2.0**self.l*U1).astype(int)
         x = x
         return x
+    def extract_watermark_v2(self, reversed_w):
+        #将tensor转换为numpy数组
+        reversed_w = reversed_w.cpu().numpy()
+        # U2 = self.U2.reshape((1, 4, 64, 64))
+        U2 = self.U2.reshape((1, 4, 128, 128))
+        denominator = np.cos(2*np.pi*U2)
+        #将reverse_w的每一个元素转换除以denominator，然后平方
+        R = (reversed_w / denominator)**2
+        #计算e的-1/2 *R次方
+        U1 = np.exp(-0.5*R)
+        #U1中的元素，如果大于self.p则置为1，否则置为0
+        x = np.where(U1 > self.p, 1, 0).astype(int)
+
+        return x
     def diffusion_inverse(self,watermark_r):
         ch_stride = 4 // self.ch
         hw_stride = 64 // self.hw
+        # hw_stride = 128 // self.hw
         ch_list = [ch_stride] * self.ch
         hw_list = [hw_stride] * self.hw
         split_dim1 = torch.cat(torch.split(watermark_r, tuple(ch_list), dim=1), dim=0)
@@ -146,6 +261,17 @@ class Gaussian_Shading_chacha:
 
     def eval_watermark(self, reversed_w):
         reversed_m = self.extract_watermark(reversed_w)  #(reversed_w > 0).int()
+        reversed_sd = self.stream_key_decrypt(reversed_m.flatten())
+        reversed_watermark = self.diffusion_inverse(reversed_sd)
+        correct = (reversed_watermark == self.watermark).float().mean().item()
+        if correct >= self.tau_onebit:
+            self.tp_onebit_count = self.tp_onebit_count+1
+        if correct >= self.tau_bits:
+            self.tp_bits_count = self.tp_bits_count + 1
+        return correct
+    
+    def eval_watermark_v2(self, reversed_w):
+        reversed_m = self.extract_watermark_v2(reversed_w)  #(reversed_w > 0).int()
         reversed_sd = self.stream_key_decrypt(reversed_m.flatten())
         reversed_watermark = self.diffusion_inverse(reversed_sd)
         correct = (reversed_watermark == self.watermark).float().mean().item()

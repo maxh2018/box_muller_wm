@@ -21,8 +21,10 @@ sys.path.append(parent_dir)
 # from DeamNet.denoise import main as denoise
 from MaskedDenoising.denoise import  denoise as denoise_
 from MaskedDenoising.denoise import  init, param_denoise
+import os
+os.environ["CUDA_VISIBLE_DEVICES"] = "7"
 
-DENOISE = True
+DENOISE = False
 
 class param(param):
     device: str = 'cuda'
@@ -39,6 +41,7 @@ class param(param):
     num: int = 1000
     image_length: int = 512
     guidance_scale: float = 7.5
+    guidance_scale_reconstruct : float = 7.5
     num_inference_steps: int = 50
     num_inversion_steps: Optional[int] = None
     gen_seed: int = 0
@@ -54,6 +57,7 @@ class param(param):
     save_image: bool = False
     save_distortion: bool = False
     DENOISE : bool= False
+    no_watermark: bool = False
     
 
 
@@ -61,7 +65,7 @@ class param(param):
 
 
 def main(args: param):
-   
+    NOWM = args.no_watermark
     device = args.device
     scheduler = DPMSolverMultistepScheduler.from_pretrained(args.model_path, subfolder='scheduler')
     pipe = InversableStableDiffusionPipeline.from_pretrained(
@@ -118,7 +122,10 @@ def main(args: param):
 
         #generate with watermark
         set_random_seed(seed)
-        init_latents_w = watermark.create_watermark_and_return_w()
+        if NOWM:
+            init_latents_w = watermark.no_watermark_and_return_w()
+        else:
+            init_latents_w = watermark.create_watermark_and_return_w()
         outputs = pipe(
             current_prompt,
             num_images_per_prompt=1,
@@ -134,6 +141,8 @@ def main(args: param):
         if args.save_image:
             image_w.save(args.output_path + 'image_w_' + str(i) + '.png')
 
+        if NOWM:
+            continue
         # distortion
         image_w_distortion,type_info = image_distortion(image_w, seed, args)
         if args.save_distortion:
@@ -144,7 +153,7 @@ def main(args: param):
         if args.DENOISE is True:  
             image_w_distortion = denoise(image_w_distortion)
         # reverse img
-        image_w_distortion = transform_img(image_w_distortion).unsqueeze(0).to(text_embeddings.dtype).to(device)
+        image_w_distortion = transform_img(image_w_distortion, target_size=512).unsqueeze(0).to(text_embeddings.dtype).to(device)
         image_latents_w = pipe.get_image_latents(image_w_distortion, sample=False)
         reversed_latents_w = pipe.forward_diffusion(
             latents=image_latents_w,
@@ -166,7 +175,8 @@ def main(args: param):
         else:
             clip_socre = 0
         clip_scores.append(clip_socre)
-
+    if NOWM:
+        return
     #tpr metric
     tpr_detection, tpr_traceability = watermark.get_tpr()
     #save metrics

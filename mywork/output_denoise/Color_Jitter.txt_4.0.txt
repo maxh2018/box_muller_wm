@@ -1,0 +1,2 @@
+tpr_detection:0.94      tpr_traceability:0.88      mean_acc:0.894765625      std_acc:0.12723559382068034      
+tpr_detection:0.94      tpr_traceability:0.86      mean_acc:0.890546875      std_acc:0.12925362421305572      

@@ -17,11 +17,14 @@ def get_dataset(args):
     if 'laion' in args.dataset_path:
         dataset = load_dataset(args.dataset)['train']
         prompt_key = 'TEXT'
-    elif 'coco' in args.dataset_path:
-        with open('fid_outputs/coco/meta_data.json') as f:
-            dataset = json.load(f)
-            dataset = dataset['annotations']
-            prompt_key = 'caption'
+    # elif 'coco' in args.dataset_path:
+    #     with open('fid_outputs/coco/meta_data.json') as f:
+    #         dataset = json.load(f)
+    #         dataset = dataset['annotations']
+    #         prompt_key = 'caption'
+    # elif 'coco' in args.dataset_path or 'Flickr8k' in args.dataset_path:
+    #     dataset = load_dataset(args.dataset_path)
+    #     prompt_key = 'Prompt'
     else:
         dataset = load_dataset(args.dataset_path)['train']
         prompt_key = 'Prompt'
