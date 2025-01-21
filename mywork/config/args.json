@@ -39,5 +39,5 @@
   "epoch": 10,
   "resume": false,
   "load_checkpoint": false,
-  "DENOISE": true
+  "DENOISE": false
 }
