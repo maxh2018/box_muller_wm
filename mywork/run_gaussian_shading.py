@@ -22,10 +22,11 @@ sys.path.append(parent_dir)
 from MaskedDenoising.denoise import  denoise as denoise_
 from MaskedDenoising.denoise import  init, param_denoise
 import os
-os.environ["CUDA_VISIBLE_DEVICES"] = "7"
+# os.environ["CUDA_VISIBLE_DEVICES"] = "7"
 
 DENOISE = False
 
+#这里定义了有什么参数，设置参数需要修改config/args.json文件
 class param(param):
     device: str = 'cuda'
     model_path: str = 'stabilityai/stable-diffusion-2-1-base'
