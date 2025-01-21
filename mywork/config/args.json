@@ -5,14 +5,14 @@
   "user_number": 1000000,
 
   "device": "cuda",
-  "model_path": "/data/FinAi_Mapping_Knowledge/TOG3/maxiaohui/cache/stable-diffusion-2-1-base",
+  "model_path": "/data/FinAi_Mapping_Knowledge/TOG3/maxiaohui/cache/stable-diffusion-2-1-base", //SD 模型位置，不想下载用huggingface上模型名称替代也可以
   "reference_model": null,
   "reference_model_pretrain": null,
-  "dataset_path": "Gustavosta/Stable-Diffusion-Prompts",
+  "dataset_path": "FID/Flickr8k", //数据集位置
   "channel_copy": 1,
   "hw_copy": 8,
   "no_watermark": false,
-  "output_path": "./output_infer10/",
+  "output_path": "./output_infer10/", //输出路径，记得改下名字
   "chacha": true,
   "num": 1000,
   "image_length": 512,
@@ -20,7 +20,7 @@
   "num_inference_steps": 10,
   "num_inversion_steps": null,
   "gen_seed": 0,
-
+  //下面都是攻击
   "jpeg_ratio": null,
   "random_crop_ratio": null,
   "random_drop_ratio": null,
